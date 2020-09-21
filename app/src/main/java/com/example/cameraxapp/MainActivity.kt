@@ -3,12 +3,12 @@ package com.example.cameraxapp
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.Toast
-import androidx.camera.core.Camera
-import androidx.camera.core.ImageAnalysis
-import androidx.camera.core.ImageCapture
-import androidx.camera.core.Preview
+import androidx.camera.core.*
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.File
@@ -28,12 +28,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraExecutor: ExecutorService
 
     private lateinit var cameraCaptureButton: Button
+    private lateinit var viewFinder: PreviewView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         cameraCaptureButton = findViewById<Button>(R.id.camera_capture_button)
+        viewFinder = findViewById<PreviewView>(R.id.viewFinder)
+
         //Request camera permissions
         if(allPermissionsGranted()) {
             startCamera()
@@ -57,7 +60,55 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun startCamera(){
-        //TODO
+        /*
+        Create an instance of the ProcessCameraProvider. This is used to bind the
+        camera lifecyle to owner's lifecyle.
+        This allows you not to worry about opening and closing the camera
+        since CameraX is lifecyle aware.
+         */
+        val cameraProviderFuture
+                = ProcessCameraProvider.getInstance(this)
+
+        /*
+
+         */
+        cameraProviderFuture.addListener(Runnable {
+            //Used to bind the lifecyle of cameras to the lifecycle
+            //owner within the application's process
+            val cameraProvider: ProcessCameraProvider
+            =cameraProviderFuture.get()
+
+            //Initialize your Preview object
+            preview = Preview.Builder().build()
+
+            //Select back camera
+            val cameraSelector = CameraSelector.Builder()
+                    .requireLensFacing(CameraSelector.LENS_FACING_BACK)
+                    .build()
+            try{
+                //Unbind use cases before rebinding
+                cameraProvider.unbindAll()
+
+                //Bind use cases to camera
+                camera = cameraProvider.bindToLifecycle(
+                        this , cameraSelector ,
+                        preview)
+                preview?.setSurfaceProvider(viewFinder
+                        .createSurfaceProvider(
+                          camera?.cameraInfo))
+            }catch (exc: Exception) {
+                /*
+                There are few ways this code could fail, like if the app is no
+                longer in focus. Wrap this code in catch block to log if there's
+                failure
+                 */
+                Log.e(TAG, "Use case binding failed", exc)
+            }
+        } , ContextCompat.getMainExecutor(this))
+        /*Above getMainExecuttor is the second param to Runnable in addListener
+        This returns an Executor that runs on the main thread.
+         */
+
     }
 
     private fun takePhoto(){
