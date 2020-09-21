@@ -1,6 +1,7 @@
 package com.example.cameraxapp
 
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -13,6 +14,8 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.File
 import java.lang.Exception
+import java.text.SimpleDateFormat
+import java.util.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.jar.Manifest
@@ -81,6 +84,9 @@ class MainActivity : AppCompatActivity() {
             //Initialize your Preview object
             preview = Preview.Builder().build()
 
+            //Image capturing
+            imageCapture = ImageCapture.Builder().build()
+
             //Select back camera
             val cameraSelector = CameraSelector.Builder()
                     .requireLensFacing(CameraSelector.LENS_FACING_BACK)
@@ -92,7 +98,7 @@ class MainActivity : AppCompatActivity() {
                 //Bind use cases to camera
                 camera = cameraProvider.bindToLifecycle(
                         this , cameraSelector ,
-                        preview)
+                        preview , imageCapture)
                 preview?.setSurfaceProvider(viewFinder
                         .createSurfaceProvider(
                           camera?.cameraInfo))
@@ -108,11 +114,55 @@ class MainActivity : AppCompatActivity() {
         /*Above getMainExecuttor is the second param to Runnable in addListener
         This returns an Executor that runs on the main thread.
          */
-
     }
 
+    /*
+    Gets called when the capture button is pressed
+     */
     private fun takePhoto(){
-        //TODO
+
+    /*Get a stable reference of the modifiable image capture use case
+    If the use case in null , return out of the function. This will be
+    null if you tap the photo button before image capture is set up. Without
+    the return statement , the app would crash if it was null
+     */
+
+    val imageCapture = imageCapture ?: return
+
+    //create file to hold image. Add in a timestamp so the file name will be unique
+    val photoFile = File(
+            outputDirectory ,
+            SimpleDateFormat(FILENAME_FORMAT , Locale.US
+            ).format(System.currentTimeMillis()) + ".jpg")
+
+    //create output options object which contains file + metadata
+    /*This object is where you can specify things about how you want your output
+    to be. You want the o/p to be saved in the file we just created , so
+    add your photoFile
+     */
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(
+            photoFile).build()
+
+    /*
+    Setup image capture listener which is triggered after photo has been taken
+     */
+    imageCapture.takePicture(
+            outputOptions ,
+            ContextCompat.getMainExecutor(this),
+            object: ImageCapture.OnImageSavedCallback{
+                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                     val savedUri = Uri.fromFile(photoFile)
+                     val msg = "Photo capture succeeded: $savedUri"
+                    Toast.makeText(baseContext , msg , Toast.LENGTH_SHORT).show()
+                    Log.d(TAG , msg)
+                }
+
+                override fun onError(exc: ImageCaptureException) {
+                 Log.e(TAG , "Photo capture failed : ${exc.message}" , exc)
+                }
+
+            }
+    )
     }
 
     private fun allPermissionsGranted()
