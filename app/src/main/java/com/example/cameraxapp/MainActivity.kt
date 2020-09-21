@@ -1,13 +1,16 @@
 package com.example.cameraxapp
 
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
+import android.widget.Toast
 import androidx.camera.core.Camera
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import java.io.File
 import java.lang.Exception
 import java.util.concurrent.ExecutorService
@@ -61,7 +64,12 @@ class MainActivity : AppCompatActivity() {
         //TODO
     }
 
-    private fun allPermissionsGranted() = false
+    private fun allPermissionsGranted()
+            = Companion.REQUIRED_PERMISSIONS.all{
+        ContextCompat.checkSelfPermission(
+                baseContext , it
+        ) == PackageManager.PERMISSION_GRANTED
+    }
 
     fun getOutputDirectory(): File{
         val mediaDir = externalMediaDirs.firstOrNull()?.let {
@@ -81,5 +89,20 @@ class MainActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS =10
         private val REQUIRED_PERMISSIONS =
                 arrayOf(android.Manifest.permission.CAMERA)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+
+        //Check if the request code is correct
+        if(requestCode == REQUEST_CODE_PERMISSIONS){
+            if(allPermissionsGranted()){
+                startCamera()
+            }else{
+                Toast.makeText(this ,
+                "Permissions not granted by the user" ,
+                Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
     }
 }
